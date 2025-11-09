@@ -1,22 +1,26 @@
 #include "irc.hpp"
 
-Client::Client(){fd = -1; receive_guide = 0;authenticated = false; chan_operator = 0;};
-Client::Client(int f){fd = f; receive_guide = 0;authenticated = false; chan_operator = 0;};
-Client::Client(const Client &other){fd = other.fd; receive_guide = other.receive_guide; authenticated = other.authenticated; chan_operator = other.chan_operator;};
-Client& Client::operator=(const Client &other){ if (this != &other){fd = other.fd; receive_guide = other.receive_guide; authenticated = other.authenticated; chan_operator = other.chan_operator;}return *this;};
+Client::Client(){fd = -1; receive_guide = 0;authenticated = false; chan_operator = 0; authentified = 0;};
+Client::Client(int f){fd = f; receive_guide = 0;authenticated = false; chan_operator = 0; authentified = 0;};
+Client::Client(const Client &other){fd = other.fd; receive_guide = other.receive_guide; authenticated = other.authenticated; chan_operator = other.chan_operator; authentified = other.authentified;};
+Client& Client::operator=(const Client &other){ if (this != &other){fd = other.fd; receive_guide = other.receive_guide; authenticated = other.authenticated; chan_operator = other.chan_operator; authentified = other.authentified;}return *this;};
 int Client::getfd(){return fd;};
 int Client::getReceiveGuide(){return receive_guide;};
 void Client::setReceiveGuide(int n){receive_guide = n;}
 void Client::setfd(int f){fd = f;};
 bool Client::isAuthenticated(){return authenticated;};
 void Client::setAuthenticated(bool a){authenticated = a;};
-std::string Client::getNick() const { return nickname; };
-void Client::setNick(const std::string &nick) { nickname = nick; };
-std::string Client::getUser() const { return username; };
-void Client::setUser(const std::string &user) { username = user; };
-std::string Client::getChannel() const { return current_channel; }
+std::string Client::getNick()const{return nickname;};
+void Client::setNick(const std::string &nick){nickname = nick;};
+std::string Client::getUser()const{return username;};
+void Client::setUser(const std::string &user){username = user;};
+std::string Client::getChannel()const{return current_channel;}
 void Client::setChannel(const std::string &chan){current_channel = chan;};
 void Client::setChanOperator(){chan_operator = 1;};
+int Client::getChanOperator(){return chan_operator;};
+void Client::implementeAuthentificator(){if (authentified < 2)authentified++;};
+void Client::decrementeAuthentificator(){if (authentified > 0)authentified--;};
+int Client::getAuthentified(){return authentified;};
 Client::~Client(){};
 
 Channel::Channel(){};
@@ -82,6 +86,20 @@ void signalHandler(int signum)
 {
     std::cout << "\n⚠️  Signal " << signum << " received, shutting down server...\n";
     //g_running = false;
+}
+
+int check_correct_character(std::string s)
+{
+	int i = 0;
+	while (s[i])
+	{
+		if ((s[i] < 65 || s[i] > 90) && (s[i] < 97 || s[i] > 122))
+		{
+			return (1);
+		}
+		i++;
+	}
+	return (0);
 }
 
 
@@ -164,7 +182,6 @@ int main(int ac, char **av)
             perror("poll");
             break;
         }
-
         for (size_t i = 0; i < fds.size(); ++i)
         {
             if (!(fds[i].revents & POLLIN))
@@ -181,8 +198,9 @@ int main(int ac, char **av)
                 }
                 fcntl(client_fd, F_SETFL, O_NONBLOCK);
                 std::cout << "👤 New client connected (fd=" << client_fd << ")\n";
+				std::string first_notice = "\n🔒Please enter the correct password to be autothentified by the server🔒\n\n";
+				send(client_fd, first_notice.c_str(), first_notice.size(), 0);
                 fds.push_back({client_fd, POLLIN, 0});
-
                 Client c(client_fd);
                 clients[client_fd] = c;
             }
@@ -207,7 +225,6 @@ int main(int ac, char **av)
                 if (clients.find(fds[i].fd) != clients.end())
                 {
                     Client &cli = clients[fds[i].fd];
-
                     // --- Authentification ---
                     if (!cli.isAuthenticated())
                     {
@@ -226,7 +243,7 @@ int main(int ac, char **av)
 								"JOIN #chan - join a channel.🪢\n"
 								"MSG #chan <text> - send a message.💬\n"
 								"PMSG #user <text> - send a private message to another client.📨\n"
-								"QUIT - disconnect.🫶\n"
+								"QUIT - disconnect.🫡\n"
 								"GUIDE - refresh this guide.💡\n\n";
 								send(cli.getfd(), guide.c_str(), guide.size(), 0);
 								cli.setReceiveGuide(1);
@@ -252,7 +269,7 @@ int main(int ac, char **av)
 					std::string tmp = parse_msg.substr(start, j - start);
                     if (tmp == "QUIT" || tmp == "EXIT")
                     {
-                        std::string bye = "Goodbye!\n";
+                        std::string bye = "Goodbye!🫡\n";
                         send(cli.getfd(), bye.c_str(), bye.size(), 0);
                         shutdown(cli.getfd(), SHUT_RDWR);
                         close(cli.getfd());
@@ -278,7 +295,7 @@ int main(int ac, char **av)
 							"JOIN #chan - join a channel.🪢\n"
 							"MSG #chan <text> - send a message.💬\n"
 							"PMSG #user <text> - send a private message to another client.📨\n"
-							"QUIT - disconnect.🫶\n"
+							"QUIT - disconnect.🫡\n"
 							"GUIDE - refresh this guide.💡\n\n";
 							send(cli.getfd(), guide.c_str(), guide.size(), 0);
 						}
@@ -303,8 +320,18 @@ int main(int ac, char **av)
 							std::string error = "🤖 Correct command for nickname : NICK <name>\n";
 							send(cli.getfd(), error.c_str(), error.size(), 0);
 						}
+						else if (check_correct_character(tmp) == 1)
+						{
+							if (cli.getAuthentified() == 3)
+								cli.decrementeAuthentificator();
+							cli.decrementeAuthentificator();
+							std::string error = "🤖 Wrong nickname : only Alphabetic char accepted\n";
+							send(cli.getfd(), error.c_str(), error.size(), 0);
+						}
 						else
 						{
+							if (cli.getAuthentified() != 2)
+								cli.implementeAuthentificator();
 							cli.setNick(tmp);
 							std::string nickname = "✨ Nickname set as : " + cli.getNick() + "\n";
 							send(cli.getfd(), nickname.c_str(), nickname.size(), 0);
@@ -325,51 +352,115 @@ int main(int ac, char **av)
 							std::string error = "🤖 Correct command for username : USER <name>\n";
 							send(cli.getfd(), error.c_str(), error.size(), 0);
 						}
+						else if (check_correct_character(tmp) == 1)
+						{
+							cli.decrementeAuthentificator();
+							std::string error = "🤖 Wrong username : only Alphabetic char accepted\n";
+							send(cli.getfd(), error.c_str(), error.size(), 0);
+						}
 						else
 						{
+							if (cli.getAuthentified() != 2)
+								cli.implementeAuthentificator();
 							cli.setUser(tmp);
-							std::string Username = "✨ Username set as : " + cli.getUser() + "\n";
+							std::string Username = "🌟 Username set as : " + cli.getUser() + "\n";
 							send(cli.getfd(), Username.c_str(), Username.size(), 0);
 						}
 					}
 					else if (tmp == "JOIN")
 					{
-						while (j < parse_msg.size() && parse_msg[j] <= ' ')
-						j++;
-						start = j;
-						while (j < parse_msg.size() && parse_msg[j] > ' ')
-							j++;
-						std::string channel_name = parse_msg.substr(start, j - start);
-						while (j < parse_msg.size() && parse_msg[j] > ' ')
-							j++;
-						if (channel_name.empty() || j < parse_msg.size() || channel_name[0] != '#')
+						if (cli.getAuthentified() == 2)
 						{
-							std::string error = "🤖 Correct command to join a channel : JOIN #chan\n";
-							send(cli.getfd(), error.c_str(), error.size(), 0);
+							while (j < parse_msg.size() && parse_msg[j] <= ' ')
+							j++;
+							start = j;
+							while (j < parse_msg.size() && parse_msg[j] > ' ')
+								j++;
+							std::string channel_name = parse_msg.substr(start, j - start);
+							while (j < parse_msg.size() && parse_msg[j] > ' ')
+								j++;
+							if (channel_name.empty() || j < parse_msg.size() || channel_name[0] != '#')
+							{
+								std::string error = "🤖 Correct command to join a channel : JOIN #chan\n";
+								send(cli.getfd(), error.c_str(), error.size(), 0);
+							}
+							else
+							{
+								if (channels.find(channel_name) == channels.end())
+								{
+									channels[channel_name] = Channel(channel_name);
+									cli.setChanOperator();
+								}
+								channels[channel_name].addClient(cli.getfd());
+								cli.setChannel(channel_name);
+								std::string reply = "🪢 You joined " + channel_name + "\n";
+								send(cli.getfd(), reply.c_str(), reply.size(), 0);
+								std::cout << "💽 Client #" << cli.getfd() << " join " << channel_name << "\n";
+							}
 						}
 						else
 						{
-							if (channels.find(channel_name) == channels.end())
-							{
-            					channels[channel_name] = Channel(channel_name);
-								cli.setChanOperator();
-							}
-							channels[channel_name].addClient(cli.getfd());
-        					cli.setChannel(channel_name);
-							std::string reply = "🪢 You joined " + channel_name + "\n";
-       						send(cli.getfd(), reply.c_str(), reply.size(), 0);
-							std::cout << "💽 Client #" << cli.getfd() << " join " << channel_name << "\n";
+							std::string error = "⚠️ You need to be authentified first, before joining a chan\n";
+							send(cli.getfd(), error.c_str(), error.size(), 0);
 						}
 					}
 					else if (tmp == "MSG")
 					{
-						return (1);
+						while (j < parse_msg.size() && parse_msg[j] <= ' ')
+							j++;
+						size_t start = j;
+						while (j < parse_msg.size() && parse_msg[j] > ' ')
+							j++;
+						std::string identifier = parse_msg.substr(start, j - start);
+						while (j < parse_msg.size() && parse_msg[j] <= ' ')
+							j++;
+						std::string message = parse_msg.substr(j);
+						if (identifier.empty() || identifier[0] != '#')
+						{
+							std::string error = "🤖 Correct command : MSG #<channel> <text>\n";
+							send(cli.getfd(), error.c_str(), error.size(), 0);
+							continue;
+						}
+						if (message.empty())
+						{
+							std::string error = "🤖 Please provide a message text.\n";
+							send(cli.getfd(), error.c_str(), error.size(), 0);
+							continue;
+						}
+						if (channels.find(identifier) == channels.end())
+						{
+							std::string error = "❌ Channel " + identifier + " does not exist.\n";
+							send(cli.getfd(), error.c_str(), error.size(), 0);
+							continue;
+						}
+						if (cli.getChannel() != identifier)
+						{
+							std::string error = "❌ You are not in channel " + identifier + ".\n";
+							send(cli.getfd(), error.c_str(), error.size(), 0);
+							continue;
+						}
+						std::string formatted = "💬 [" + identifier + "] " + cli.getNick() + ": " + message + "\n";
+						for (int member_fd : channels[identifier].getClients())
+						{
+							if (member_fd != cli.getfd())
+							{
+								send(member_fd, formatted.c_str(), formatted.size(), 0);
+							}
+						}
+						std::cout << "📢 " << cli.getNick() << " sent message to " << identifier << ": " << message << std::endl;
 					}
 					else
 					{
 						std::string reply = "You said: " + msg + "\n";
 						send(cli.getfd(), reply.c_str(), reply.size(), 0);
 					}
+					if (cli.getAuthentified() == 2)
+					{
+						cli.implementeAuthentificator();
+						std::string authentified = "You managed to be authentified 🗿\n";
+						send(cli.getfd(), authentified.c_str(), authentified.size(), 0);	
+					}
+					std::cout << cli.getAuthentified();
                 }
             }
         }

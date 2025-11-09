@@ -31,6 +31,7 @@ struct		Client
 	bool	authenticated;
 	std::string nickname;
 	std::string username;
+	int authentified;
 	std::string current_channel;
     int chan_operator;
 
@@ -53,6 +54,10 @@ struct		Client
 	std::string getChannel() const;
 	void setChannel(const std::string &chan);
     void setChanOperator();
+    int getChanOperator();
+	void implementeAuthentificator();
+	void decrementeAuthentificator();
+	int getAuthentified();
 };
 
 class Channel
