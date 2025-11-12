@@ -22,18 +22,24 @@
 # include <sys/types.h>
 # include <unistd.h>
 # include <vector>
+#include <sstream>
 
+class Channel;
 struct		Client
 {
   private:
 	int		fd;
 	int		receive_guide;
 	bool	authenticated;
-	std::string nickname;
-	std::string username;
-	int authentified;
-	std::string current_channel;
-    int chan_operator;
+	std::set<std::string> nickname;
+	std::set<std::string> username;
+	int		authentified;
+	std::set<std::string> channels;
+	int		chan_operator;
+	//
+	int		msg_authentificator;
+	//
+	std::set<std::string> operator_channels;
 
   public:
 	Client();
@@ -50,21 +56,44 @@ struct		Client
 	std::string getNick() const;
 	void setNick(const std::string &nick);
 	std::string getUser() const;
+	//
 	void setUser(const std::string &user);
-	std::string getChannel() const;
-	void setChannel(const std::string &chan);
-    void setChanOperator();
-    int getChanOperator();
+	void joinChannel(const std::string &chan);
+	void leaveChannel(const std::string &chan);
+	bool isInChannel(const std::string &chan) const;
+	const std::set<std::string> &getChannels() const;
+	//
+	void setChanOperator();
+	int getChanOperator();
 	void implementeAuthentificator();
 	void decrementeAuthentificator();
+	void implementeMsgAuthentif();
+	void decrementeMsgAuthentif();
+	int getMsgAuthentif();
 	int getAuthentified();
+	void removeLastNick();
+	void removeLastUser();
+	//
+	void setOperator(const std::string &chan);
+    void removeOperator(const std::string &chan);
+    bool isOperatorOf(const std::string &chan) const;
+    const std::set<std::string> &getOperatorChannels() const;
 };
 
 class Channel
 {
   private:
 	std::string name;
+	std::string Topic;
+	int can_modify_topic;
 	std::set<int> clients;
+	//
+	bool inviteOnly;        // mode +i
+    bool topicRestricted;   // mode +t
+    std::string key;        // mode +k
+    int userLimit;          // mode +l
+    std::set<int> invited;
+	std::set<int> operators;
 
   public:
 	Channel();
@@ -74,6 +103,35 @@ class Channel
 	void addClient(int fd);
 	void removeClient(int fd);
 	const std::set<int> &getClients() const;
+	int firstClientYesOrNo(std::string msg, Client &c);
+	//
+	void setInviteOnly(bool on);
+    bool isInviteOnly() const;
+
+    void setTopicRestricted(bool on);
+    bool isTopicRestricted() const;
+
+    void setKey(const std::string &k);
+    void removeKey();
+    bool hasKey() const;
+    std::string getKey() const;
+
+    void setUserLimit(int limit);
+    void removeUserLimit();
+    int getUserLimit() const;
+
+    void addOperator(int fd);
+    void removeOperator(int fd);
+    bool isOperator(int fd) const;
+
+    void invite(int fd);
+    bool isInvited(int fd) const;
+
+	void setTopic(std::string s);
+	std::string getTopic();
+	void set_can_modify_topic(int n);
+	int get_modify_topic();
+
 };
 
 // ------------------Initialisation du serveur
