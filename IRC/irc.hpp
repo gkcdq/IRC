@@ -78,6 +78,7 @@ struct		Client
     void removeOperator(const std::string &chan);
     bool isOperatorOf(const std::string &chan) const;
     const std::set<std::string> &getOperatorChannels() const;
+	std::string _buffer;
 };
 
 class Channel

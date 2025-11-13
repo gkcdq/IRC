@@ -35,7 +35,7 @@ int Client::getMsgAuthentif(){return msg_authentificator;};
 Client::~Client(){};
 Channel::Channel(){};
 Channel::~Channel(){};
-Channel::Channel(const std::string& n){name = n;inviteOnly = true;topicRestricted= false; userLimit = 2147483647;};
+Channel::Channel(const std::string& n){name = n;inviteOnly = true;topicRestricted = true; userLimit = 2147483647;};
 const std::string& Channel::getName()const{ return name;};
 void Channel::addClient(int fd){clients.insert(fd);};
 void Channel::removeClient(int fd){clients.erase(fd);};
@@ -256,7 +256,11 @@ int main(int ac, char **av)
 								"JOIN #chan - join a channel.🪢\n"
 								"MSG #chan <text> - send a message.💬\n"
 								"PMSG #user <text> - send a private message to another client.📨\n"
-								"QUIT - disconnect.🫡\n"
+								"INVITE #chan #user - invite a client to the channel.🫂\n"
+								"KICK #chan #user - get out the user of the channel.👮🏼‍♂️"
+								"TOPIC #chan [text] - view or modify the topic of the channel.✍🏼"
+								"MODE #chan (options : +/- i, t, k, o, l) - modify channel rules.👾"
+								"QUIT/EXIT - disconnect.🫡\n"
 								"GUIDE - refresh this guide.💡\n\n";
 								send(cli.getfd(), guide.c_str(), guide.size(), 0);
 								cli.setReceiveGuide(1);
@@ -308,7 +312,11 @@ int main(int ac, char **av)
 							"JOIN #chan - join a channel.🪢\n"
 							"MSG #chan <text> - send a message.💬\n"
 							"PMSG #user <text> - send a private message to another client.📨\n"
-							"QUIT - disconnect.🫡\n"
+							"INVITE #chan #user - invite a client to the channel.🫂\n"
+							"KICK #chan #user - get out the user of the channel.👮🏼‍♂️"
+							"TOPIC #chan [text] - view or modify the topic of the channel.✍🏼"
+							"MODE #chan (options : +/- i, t, k, o, l) - modify channel rules.👾"
+							"QUIT/EXIT - disconnect.🫡\n"
 							"GUIDE - refresh this guide.💡\n\n";
 							send(cli.getfd(), guide.c_str(), guide.size(), 0);
 						}
@@ -791,8 +799,16 @@ int main(int ac, char **av)
 							std::string targetNick = identifier.substr(1);
 							if(message.empty())
 							{
-								std::string topview = "🕯️ TOPIC : " + channels[identifier].getTopic() + "\n";
-								send(cli.getfd(), topview.c_str(), topview.size(), 0);
+								if (channels[identifier].isTopicRestricted() == true || cli.getChanOperator() == true)
+								{
+									std::string topview = "🕯️ TOPIC : " + channels[identifier].getTopic() + "\n";
+									send(cli.getfd(), topview.c_str(), topview.size(), 0);
+								}
+								else
+								{
+									std::string topview = "ℹ️ You cannot see the TOPIC of " + channels[identifier].getName() + "\n";
+									send(cli.getfd(), topview.c_str(), topview.size(), 0);
+								}
 							}
 							else
 							{
