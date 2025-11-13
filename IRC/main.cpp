@@ -129,7 +129,6 @@ int main(int ac, char **av)
     int bytes;
     std::string local_port_str;
     std::string local_pass;
-    // ---------------- Vérification des arguments ----------------
     if (ac != 3 && ac != 4)
     {
         std::cout << "Usage:\n  " << av[0] << " <port> <password>\n"
@@ -146,7 +145,6 @@ int main(int ac, char **av)
         std::cout << "Error: invalid port '" << local_port_str << "' (must be 1024-65535)" << std::endl;
         return 1;
     }
-    // ---------------- Création du socket serveur ----------------
     remote_sock = -1;
     server_fd = socket(AF_INET, SOCK_STREAM, 0);
     if (server_fd < 0)
@@ -180,13 +178,9 @@ int main(int ac, char **av)
         fds.push_back({remote_sock, POLLIN, 0});
         fcntl(remote_sock, F_SETFL, O_NONBLOCK);
     }
-    // ---------------- Table des clients ----------------
     std::map<int, Client> clients;
-	// ---------------- Table des channels ----------------
 	std::map<std::string, Channel> channels;
-	// ---------------- handle all signal ----------------
 	signal(SIGINT, signalHandler);
-    // ---------------- Boucle principale ----------------
     while (true)
     {
         activity = poll(fds.data(), fds.size(), -1);
@@ -199,8 +193,6 @@ int main(int ac, char **av)
         {
             if (!(fds[i].revents & POLLIN))
                 continue;
-
-            // --- Nouvelle connexion ---
             if (fds[i].fd == server_fd)
             {
                 client_fd = accept(server_fd, NULL, NULL);
@@ -219,7 +211,6 @@ int main(int ac, char **av)
             }
             else
             {
-                // --- Réception de données ---
                 bytes = recv(fds[i].fd, buffer, sizeof(buffer) - 1, 0);
                 if (bytes <= 0)
                 {
@@ -230,15 +221,18 @@ int main(int ac, char **av)
                     i--;
                     continue;
                 }
-				if (bytes > 0)
-                	buffer[bytes] = '\0';
-                std::string msg(buffer);
-                while (!msg.empty() && (msg.back() == '\r' || msg.back() == '\n'))
-                    msg.pop_back();
-                if (clients.find(fds[i].fd) != clients.end())
-                {
-                    Client &cli = clients[fds[i].fd];
-                    // --- Authentification ---
+				buffer[bytes] = '\0';
+				Client &cli = clients[fds[i].fd];
+				cli._buffer += buffer;
+				size_t pos;
+				while ((pos = cli._buffer.find('\n')) != std::string::npos)
+				{
+					std::string msg = cli._buffer.substr(0, pos);
+					cli._buffer.erase(0, pos + 1);
+					while (!msg.empty() && (msg.back() == '\r' || msg.back() == '\n'))
+						msg.pop_back();
+					if (msg.empty())
+						continue;
                     if (!cli.isAuthenticated())
                     {
                         if (msg == local_pass)
@@ -257,9 +251,9 @@ int main(int ac, char **av)
 								"MSG #chan <text> - send a message.💬\n"
 								"PMSG #user <text> - send a private message to another client.📨\n"
 								"INVITE #chan #user - invite a client to the channel.🫂\n"
-								"KICK #chan #user - get out the user of the channel.👮🏼‍♂️"
-								"TOPIC #chan [text] - view or modify the topic of the channel.✍🏼"
-								"MODE #chan (options : +/- i, t, k, o, l) - modify channel rules.👾"
+								"KICK #chan #user - get out the user of the channel.👺\n"
+								"TOPIC #chan [text] - view or modify the topic of the channel.☂️\n"
+								"MODE #chan (options : +/- i, t, k, o, l) - modify channel rules.👾\n"
 								"QUIT/EXIT - disconnect.🫡\n"
 								"GUIDE - refresh this guide.💡\n\n";
 								send(cli.getfd(), guide.c_str(), guide.size(), 0);
@@ -274,7 +268,6 @@ int main(int ac, char **av)
                         }
                         continue;
                     }
-                    // --- Client authentifié ---
 					std::cout << "fd:" << cli.getfd() << " sent " << msg.size() << " bytes\n";
 					std::string parse_msg = msg;
 					size_t j = 0;
@@ -313,9 +306,9 @@ int main(int ac, char **av)
 							"MSG #chan <text> - send a message.💬\n"
 							"PMSG #user <text> - send a private message to another client.📨\n"
 							"INVITE #chan #user - invite a client to the channel.🫂\n"
-							"KICK #chan #user - get out the user of the channel.👮🏼‍♂️"
-							"TOPIC #chan [text] - view or modify the topic of the channel.✍🏼"
-							"MODE #chan (options : +/- i, t, k, o, l) - modify channel rules.👾"
+							"KICK #chan #user - get out the user of the channel.👺\n"
+							"TOPIC #chan [text] - view or modify the topic of the channel.☂️\n"
+							"MODE #chan (options : +/- i, t, k, o, l) - modify channel rules.👾\n"
 							"QUIT/EXIT - disconnect.🫡\n"
 							"GUIDE - refresh this guide.💡\n\n";
 							send(cli.getfd(), guide.c_str(), guide.size(), 0);
@@ -712,17 +705,13 @@ int main(int ac, char **av)
 								send(cli.getfd(), error.c_str(), error.size(), 0);
 								continue;
 							}
-
 							Channel &chan = chanIt->second;
-
 							if (!cli.isOperatorOf(channel_name))
 							{
 								std::string error = "⛔ You are not an operator of " + channel_name + "\n";
 								send(cli.getfd(), error.c_str(), error.size(), 0);
 								continue;
 							}
-
-							// Chercher le client cible
 							Client *targetClient = nullptr;
 							for (std::map<int, Client>::iterator it = clients.begin(); it != clients.end(); ++it)
 							{
@@ -732,7 +721,6 @@ int main(int ac, char **av)
 									break;
 								}
 							}
-
 							if (!targetClient || !targetClient->isInChannel(channel_name))
 							{
 								std::string error = "❌ User '" + targetusername + "' is not in " + channel_name + "\n";
@@ -748,8 +736,6 @@ int main(int ac, char **av)
 									kickMsg += " (" + comment + ")";
 								kickMsg += "\n";
 								send(targetClient->getfd(), kickMsg.c_str(), kickMsg.size(), 0);
-
-								// Notifier le reste du canal
 								std::string notice = targetusername + " has been kicked from " + channel_name;
 								if (!comment.empty())
 									notice += "ℹ️ (" + comment + ")";
@@ -759,7 +745,6 @@ int main(int ac, char **av)
 									if (fd != targetClient->getfd())
 										send(fd, notice.c_str(), notice.size(), 0);
 								}
-								// Confirmer l’opération à l’opérateur
 								std::string ok = "✅ " + targetusername + " kicked from " + channel_name + "\n";
 								send(cli.getfd(), ok.c_str(), ok.size(), 0);
 
