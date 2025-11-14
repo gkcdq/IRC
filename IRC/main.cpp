@@ -62,6 +62,8 @@ void Channel::setTopic(std::string s){Topic= s;};
 void Channel::set_can_modify_topic(int n){can_modify_topic = n;};
 std::string Channel::getTopic(){return Topic;};
 int Channel::get_modify_topic(){return can_modify_topic;};
+void signalHandler(int signum){std::cout << "\n⚠️  Signal " << signum << " received, shutting down server...\n";};
+int check_correct_character(std::string s){int i = 0;while (s[i]){if ((s[i] < 65 || s[i] > 90) && (s[i] < 97 || s[i] > 122)){return (1);}i++;}return (0);}
 
 /////////////////////////////////////////////////////////////////////////////////////////////
 // 'struct sockaddr_in' represente une ipv4 et contient :
@@ -73,48 +75,20 @@ int Channel::get_modify_topic(){return can_modify_topic;};
 // sin_addr                                           
 	// Adresse IP (ex: 127.0.0.1)
 /////////////////////////////////////////////////////////////////////////////////////////////
-
-// int bytes = recv(client_fd, buffer, sizeof(buffer) - 1, 0);
-// if (bytes > 0)
-// {
-//     buffer[bytes] = '\0';
-//     std::cout << "message receive : " << buffer << std::endl;
-//     if (std::string(buffer) == std::string(av[2]) + "\n")
-//     {
-//         std::string reply = "Password OK\n";
-//         send(client_fd, reply.c_str(), reply.size(), 0);
-//     }
-//     else
-//     {
-//         std::string reply = "Wrong password\n";
-//         send(client_fd, reply.c_str(), reply.size(), 0);
-//     }
-// }
-// else if (bytes == 0)
-//     std::cout << "client deconnected" << std::endl;
-// else
-//     std::cout << "recv fail" << std::endl;
-//std::atomic<bool> g_running(true);
-void signalHandler(int signum)
+void remove_client(int fd, std::map<int, Client>& clients, std::vector<pollfd>& fds)
 {
-    std::cout << "\n⚠️  Signal " << signum << " received, shutting down server...\n";
-    //g_running = false;
-}
+    close(fd);
+    clients.erase(fd);
 
-int check_correct_character(std::string s)
-{
-	int i = 0;
-	while (s[i])
+    for (auto it = fds.begin(); it != fds.end(); ++it)
 	{
-		if ((s[i] < 65 || s[i] > 90) && (s[i] < 97 || s[i] > 122))
+        if (it->fd == fd)
 		{
-			return (1);
-		}
-		i++;
-	}
-	return (0);
+            fds.erase(it);
+            break;
+        }
+    }
 }
-
 
 int main(int ac, char **av)
 {
@@ -159,7 +133,6 @@ int main(int ac, char **av)
     adr.sin_family = AF_INET;
     adr.sin_port = htons(atoi(local_port_str.c_str()));
     adr.sin_addr.s_addr = INADDR_ANY;
-
     if (bind(server_fd, (struct sockaddr *)&adr, sizeof(adr)) < 0)
     {
         perror("bind");
@@ -181,7 +154,7 @@ int main(int ac, char **av)
     std::map<int, Client> clients;
 	std::map<std::string, Channel> channels;
 	signal(SIGINT, signalHandler);
-    while (true)
+    while (1)
     {
         activity = poll(fds.data(), fds.size(), -1);
         if (activity < 0)
@@ -215,11 +188,9 @@ int main(int ac, char **av)
                 if (bytes <= 0)
                 {
                     std::cout << "❌ Client disconnected (fd=" << fds[i].fd << ")\n";
-                    close(fds[i].fd);
-                    clients.erase(fds[i].fd);
-                    fds.erase(fds.begin() + i);
-                    i--;
-                    continue;
+					remove_client(fds[i].fd, clients, fds);
+					i--;
+					continue;
                 }
 				buffer[bytes] = '\0';
 				Client &cli = clients[fds[i].fd];
@@ -281,10 +252,7 @@ int main(int ac, char **av)
                     {
                         std::string bye = "Goodbye!🫡\n";
                         send(cli.getfd(), bye.c_str(), bye.size(), 0);
-                        shutdown(cli.getfd(), SHUT_RDWR);
                         close(cli.getfd());
-                        clients.erase(cli.getfd());
-                        fds.erase(fds.begin() + i);
                         i--;
                         continue;
                     }
