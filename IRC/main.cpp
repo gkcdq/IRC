@@ -63,8 +63,6 @@ void Channel::set_can_modify_topic(int n){can_modify_topic = n;};
 std::string Channel::getTopic(){return Topic;};
 int Channel::get_modify_topic(){return can_modify_topic;};
 void signalHandler(int signum){std::cout << "\n⚠️  Signal " << signum << " received, shutting down server...\n";};
-int check_correct_character(std::string s){int i = 0;while (s[i]){if ((s[i] < 65 || s[i] > 90) && (s[i] < 97 || s[i] > 122)){return (1);}i++;}return (0);}
-
 /////////////////////////////////////////////////////////////////////////////////////////////
 // 'struct sockaddr_in' represente une ipv4 et contient :
 
@@ -90,6 +88,20 @@ void remove_client(int fd, std::map<int, Client>& clients, std::vector<pollfd>& 
     }
 }
 
+int check_correct_character(std::string s)
+{
+	int i = 0;
+	while (s[i])
+	{
+		if ((s[i] < 65 || s[i] > 90) && (s[i] < 97 || s[i] > 122))
+		{
+			return (1);
+		}
+		i++;
+	}
+	return (0);
+}
+
 int main(int ac, char **av)
 {
     size_t p1, p2;
@@ -99,7 +111,7 @@ int main(int ac, char **av)
     struct sockaddr_in adr;
     int activity;
     int client_fd;
-    char buffer[1024];
+    char buffer[10000];
     int bytes;
     std::string local_port_str;
     std::string local_pass;
@@ -133,6 +145,7 @@ int main(int ac, char **av)
     adr.sin_family = AF_INET;
     adr.sin_port = htons(atoi(local_port_str.c_str()));
     adr.sin_addr.s_addr = INADDR_ANY;
+
     if (bind(server_fd, (struct sockaddr *)&adr, sizeof(adr)) < 0)
     {
         perror("bind");
@@ -220,7 +233,7 @@ int main(int ac, char **av)
 								"USER <name> - set username.🌟\n"
 								"JOIN #chan - join a channel.🪢\n"
 								"MSG #chan <text> - send a message.💬\n"
-								"PMSG #user <text> - send a private message to another client.📨\n"
+								"PRIVMSG #user <text> - send a private message to another client.📨\n"
 								"INVITE #chan #user - invite a client to the channel.🫂\n"
 								"KICK #chan #user - get out the user of the channel.👺\n"
 								"TOPIC #chan [text] - view or modify the topic of the channel.☂️\n"
@@ -272,7 +285,7 @@ int main(int ac, char **av)
 							"USER <name> - set username.🌟\n"
 							"JOIN #chan - join a channel.🪢\n"
 							"MSG #chan <text> - send a message.💬\n"
-							"PMSG #user <text> - send a private message to another client.📨\n"
+							"PRIVMSG #user <text> - send a private message to another client.📨\n"
 							"INVITE #chan #user - invite a client to the channel.🫂\n"
 							"KICK #chan #user - get out the user of the channel.👺\n"
 							"TOPIC #chan [text] - view or modify the topic of the channel.☂️\n"
@@ -501,7 +514,7 @@ int main(int ac, char **av)
 							send(cli.getfd(), error.c_str(), error.size(), 0);
 						}
 					}
-					else if (tmp == "PMSG")
+					else if (tmp == "PRIVMSG")
 					{
 						if (cli.getAuthentified() == 2 || cli.getMsgAuthentif() == 1)
 						{
@@ -516,7 +529,7 @@ int main(int ac, char **av)
 							std::string message = parse_msg.substr(j);
 							if (identifier.empty() || identifier[0] != '#')
 							{
-								std::string error = "🤖 Correct command : PMSG #<username> <text>\n";
+								std::string error = "🤖 Correct command : PRIVMSG #<username> <text>\n";
 								send(cli.getfd(), error.c_str(), error.size(), 0);
 								continue;
 							}
@@ -621,7 +634,7 @@ int main(int ac, char **av)
 												std::string reply = "🦧 You are not even in the channel.\n";
 												send(cli.getfd(), reply.c_str(), reply.size(), 0);
 											}
-											if(channels[channel_name].getUserLimit() == channels[channel_name].getClients().size())
+											else if(channels[channel_name].getUserLimit() == channels[channel_name].getClients().size())
 											{
 												std::string reply = "🤖 Size max of user already reach, you cannot use INVITE for the moment...\n";
 												send(cli.getfd(), reply.c_str(), reply.size(), 0);
@@ -962,7 +975,7 @@ int main(int ac, char **av)
 					}
 					else
 					{
-						std::string reply = msg + "\n";
+						std::string reply = "❌ Wrong command : " + msg + "\n";
 						send(cli.getfd(), reply.c_str(), reply.size(), 0);
 					}
 					if (cli.getAuthentified() == 2)

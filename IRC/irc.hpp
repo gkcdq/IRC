@@ -85,7 +85,7 @@ class Channel
 	std::set<int> clients;
 	bool inviteOnly;       
     bool topicRestricted;   
-    std::string key;        
+    std::string key;//        
     int userLimit;         
     std::set<int> invited;
 	std::set<int> operators;
