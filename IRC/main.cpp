@@ -708,6 +708,7 @@ int main(int ac, char **av)
 								send(cli.getfd(), error.c_str(), error.size(), 0);
 								continue;
 							}
+							std::cout << targetClient->getfd() << ' ' << std::endl;
 							if (channels[channel_name].isOperator(targetClient->getfd()) == false)
 							{
 								chan.removeClient(targetClient->getfd());
@@ -731,7 +732,7 @@ int main(int ac, char **av)
 
 								std::cout << cli.getUser() << " kicked " << targetusername << " from " << channel_name << std::endl;
 							}
-							else
+							else if (channels[channel_name].isOperator(targetClient->getfd()) == true)
 							{
 								std::string error = "ℹ️ You cannot kick " + targetClient->getUser() + " he's an operator.\n";
 								send(cli.getfd(), error.c_str(), error.size(), 0);
