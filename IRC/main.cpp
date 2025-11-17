@@ -232,7 +232,7 @@ int main(int ac, char **av)
 								"NICK <name> - set nickname.✨\n"
 								"USER <name> - set username.🌟\n"
 								"JOIN #chan - join a channel.🪢\n"
-								"MSG #chan <text> - send a message.💬\n"
+								"MSG #chan <text> - send a message to a channel.💬\n"
 								"PRIVMSG #user <text> - send a private message to another client.📨\n"
 								"INVITE #chan #user - invite a client to the channel.🫂\n"
 								"KICK #chan #user - get out the user of the channel.👺\n"
@@ -284,7 +284,7 @@ int main(int ac, char **av)
 							"NICK <name> - set nickname.✨\n"
 							"USER <name> - set username.🌟\n"
 							"JOIN #chan - join a channel.🪢\n"
-							"MSG #chan <text> - send a message.💬\n"
+							"MSG #chan <text> - send a message to a channel.💬\n"
 							"PRIVMSG #user <text> - send a private message to another client.📨\n"
 							"INVITE #chan #user - invite a client to the channel.🫂\n"
 							"KICK #chan #user - get out the user of the channel.👺\n"
@@ -597,6 +597,7 @@ int main(int ac, char **av)
 								send(cli.getfd(), error.c_str(), error.size(), 0);
 								continue;
 							}
+
 							else
 							{
 								std::string targetNick = targetUser.substr(1);
@@ -779,7 +780,7 @@ int main(int ac, char **av)
 							}
 							else
 							{
-								if (channels[identifier].isTopicRestricted() == false)
+								if (channels[identifier].isTopicRestricted() == false && cli.getChanOperator() == false)
 								{
 									std::string err = "🤖 You can't modify the Topic\n";
 									send(cli.getfd(), err.c_str(), err.size(),0);
